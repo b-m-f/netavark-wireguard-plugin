@@ -104,43 +104,58 @@ impl Plugin for Exec {
         netns: String,
         opts: types::NetworkPluginExec,
     ) -> Result<types::StatusBlock, Box<dyn std::error::Error>> {
-        // TODO: create new sockets for generic packages
-        // TODO: reuse the LINK sockets that are provided by netavark
-        // TODO: create HOSTSOCKET and NETNSSOCKET structs to hold the different sockets
         let (mut host_sock, mut netns_sock) = open_netlink_sockets(&netns)?;
 
-        // let name = opts.network.network_interface.unwrap_or_default();
         let options = opts.network.options.unwrap_or_default();
         let config = options.get("config").unwrap();
-        let data = parse_config(config, "test_wg".into()).unwrap();
         let interface_name: String = ("wg-".to_owned() + &opts.network.name)
             .chars()
             .into_iter()
-            .take(16)
+            .take(15)
             .collect();
+        let data = parse_config(config, interface_name.clone()).unwrap();
 
-        // let link = host.netlink.get_link(netlink::LinkID::Name(name.clone()))?;
+        // TODO: extract data validation
+        // Peer Validation
+        for (index, peer) in data.peers.iter().enumerate() {
+            if peer.public_key == [0; 32] {
+                panic!(
+                    "invalid WireGuard configuration: Peer #{:?} is missing a PublicKey",
+                    index
+                );
+            }
+            if peer.allowed_ips.is_empty() {
+                panic!(
+                    "invalid WireGuard configuration: Peer #{:?} is missing AllowedIPs",
+                    index
+                );
+            }
+        }
+
+        // Interface Validation
+        // will succeed if the interface has an Address and a PrivateKey
+        if data.private_key == [0; 32] {
+            panic!("invalid WireGuard configuration: Interface is missing a PrivateKey",);
+        }
+        if data.addresses.is_empty() {
+            panic!("invalid WireGuard configuration: Interface is missing an Address");
+        }
 
         debug!("Setup network {}", opts.network.name);
         debug!(
             "Container interface name: {} with IP addresses {:?}",
             interface_name, data.addresses
         );
-        //
-        // // TODO: set up correct Namespaces here. NETNS is passed into this function
-        // //
-        // // let netns = open_netlink_socket(netns_path).wrap("open container netns")?;
-        // // let hostns = open_netlink_socket("/proc/self/ns/net").wrap("open host netns")?;
-        // // try to get raw file descriptor here
-        //
-        // //
-        let interface = create_wireguard_interface(
+        let interface = match create_wireguard_interface(
             &mut host_sock.netlink,
             &mut netns_sock.netlink,
             &data,
             host_sock.fd,
             netns_sock.fd,
-        );
+        ) {
+            Ok(interface) => interface,
+            Err(e) => panic!("{}", e),
+        };
         // let mut interfaces: HashMap<String, NetInterface> = HashMap::new();
         // interfaces.insert(
         //     interface,
@@ -173,11 +188,15 @@ impl Plugin for Exec {
         netns: String,
         opts: types::NetworkPluginExec,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // on teardown revert what was done in setup
-        // let (host, mut netns) = open_netlink_sockets(&netns)?;
-        // netns.netlink.del_link(netlink::LinkID::Name(
-        //     self.info.per_network_opts.interface_name.to_string(),
-        // ))?;
+        let (_, mut netns) = open_netlink_sockets(&netns)?;
+        let interface_name: String = ("wg-".to_owned() + &opts.network.name)
+            .chars()
+            .into_iter()
+            .take(15)
+            .collect();
+        netns
+            .netlink
+            .del_link(netlink::LinkID::Name(interface_name))?;
 
         Ok(())
     }
@@ -189,15 +208,25 @@ fn create_wireguard_interface(
     data: &WireGuard,
     hostns_fd: i32,
     netns_fd: i32,
-) -> String {
-    exec_netns!(
-        hostns_fd,
-        netns_fd,
-        res,
-        GenericSocket::new().wrap("netns netlink socket")
-    );
+) -> Result<String, String> {
+    match join_netns(netns_fd) {
+        Ok(_) => (),
+        Err(e) => {
+            return Err(format!(
+                "Error when trying to join network namespace: {}",
+                e
+            ))
+        }
+    };
+    let mut netns_generic_socket = match GenericSocket::new() {
+        Ok(socket) => socket,
+        Err(e) => return Err(format!("Error when creating generic netlink socket: {}", e)),
+    };
 
-    let mut netns_generic_socket = res.unwrap();
+    match join_netns(hostns_fd) {
+        Ok(_) => (),
+        Err(e) => return Err(format!("Error when trying to join host namespace: {}", e)),
+    };
 
     let mut create_link_opts =
         CreateLinkOptions::new(data.interface_name.to_string(), InfoKind::Wireguard);
@@ -208,8 +237,10 @@ fn create_wireguard_interface(
         data.interface_name.to_string()
     );
 
-    host.create_link(create_link_opts)
-        .wrap("create WireGuard interface: {}");
+    match host.create_link(create_link_opts) {
+        Ok(_) => (),
+        Err(e) => return Err(format!("Error when creating WireGuard interface: {}", e)),
+    }
 
     let link = host
         .get_link(netlink::LinkID::Name(data.interface_name.to_string()))
@@ -222,8 +253,15 @@ fn create_wireguard_interface(
         hostns_fd,
         netns_fd
     );
-    host.set_link_ns(link.header.index, netns_fd)
-        .wrap("moving WireGuard interface to container network namespace");
+    match host.set_link_ns(link.header.index, netns_fd) {
+        Ok(_) => (),
+        Err(e) => {
+            return Err(format!(
+                "Error when moving WireGuard interface to container network namespace: {}",
+                e
+            ))
+        }
+    }
 
     debug!(
         "Adding Addresses to WireGuard interface {}",
@@ -231,7 +269,15 @@ fn create_wireguard_interface(
     );
 
     for addr in &data.addresses {
-        netns_link_socket.add_addr(link.header.index, addr);
+        match netns_link_socket.add_addr(link.header.index, addr) {
+            Ok(_) => (),
+            Err(e) => {
+                return Err(format!(
+                    "Error setting address of WireGuard interface: {}",
+                    e
+                ))
+            }
+        }
     }
 
     let nlas = generate_wireguard_device_nlas(data);
@@ -241,9 +287,10 @@ fn create_wireguard_interface(
         data.interface_name.to_string()
     );
 
-    netns_generic_socket
-        .set_wireguard_device(nlas)
-        .wrap("add WireGuard interface settings");
+    match netns_generic_socket.set_wireguard_device(nlas) {
+        Ok(_) => (),
+        Err(e) => return Err(format!("Error adding WireGuard interface settings: {}", e)),
+    }
 
     if !data.peers.is_empty() {
         debug!(
@@ -253,9 +300,15 @@ fn create_wireguard_interface(
 
         for peer in data.peers[..].iter() {
             let nlas = generate_peer_nlas_for_wireguard_device(peer, data.interface_name.clone());
-            netns_generic_socket
-                .set_wireguard_device(nlas)
-                .wrap("add Peer {:?} to WireGuard interface");
+            match netns_generic_socket.set_wireguard_device(nlas) {
+                Ok(_) => (),
+                Err(e) => {
+                    return Err(format!(
+                        "Error adding Peer {:?} to WireGuard interface: {}",
+                        peer, e
+                    ))
+                }
+            }
         }
     }
 
@@ -264,18 +317,22 @@ fn create_wireguard_interface(
         data.interface_name.to_string(),
     );
 
-    netns_link_socket
-        .set_up(netlink::LinkID::Name(data.interface_name.to_string()))
-        .wrap("set WireGuard interface up");
+    match netns_link_socket.set_up(netlink::LinkID::Name(data.interface_name.to_string())) {
+        Ok(_) => (),
+        Err(e) => return Err(format!("Error when setting WireGuard interface up: {}", e)),
+    }
 
     for peer in data.peers[..].iter() {
         let routes = generate_routes_for_peer(&data.addresses, &peer.allowed_ips);
         for route in routes {
-            netns_link_socket.add_route(&route);
+            match netns_link_socket.add_route(&route) {
+                Ok(_) => (),
+                Err(e) => return Err(format!("Error when adding route for WireGuard peer: {}", e)),
+            };
         }
     }
 
-    data.interface_name.clone()
+    Ok(data.interface_name.clone())
 }
 //
 fn parse_config(path: &String, interface_name: String) -> Result<WireGuard, String> {
@@ -675,11 +732,7 @@ pub fn join_netns(fd: RawFd) -> NetavarkResult<()> {
 }
 #[macro_export]
 macro_rules! exec_netns {
-    ($host:expr, $netns:expr, $result:ident, $exec:expr) => {
-        join_netns($netns);
-        let $result = $exec;
-        join_netns($host);
-    };
+    ($host:expr, $netns:expr, $result:ident, $exec:expr) => {};
 }
 
 /// wrap any result into a NetavarkError and add the given msg
