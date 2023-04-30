@@ -1,8 +1,25 @@
 [package]
-name = "wireguard-plugin"
-version = "0.1.0"
+name = "netavark-wireguard-plugin"
+version = "1.0.0"
 edition = "2021"
+authors = ["b-m-f <max@ehlers.berlin>"]
+license = ""
+readme = "README.md"
+description = "WireGuard plugin to be used with https://github.com/containers/netavark"
+homepage = ""
+repository = ""
+categories = ["containers", "networking", "podman", "wireguard", "vpn"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+netavark = { git = "https://github.com/containers/netavark", tag = "v1.6.0" }
+base64 = "0.21.0"
+netlink-packet-wireguard = "0.2.1"
+netlink-packet-generic = "0.3.2"
+netlink-packet-route = "0.15"
+netlink-sys = "0.8.5"
+netlink-packet-core = "0.5"
+ipnet = { version = "2", features = ["serde"] }
+log = "0.4.17"
+nix = "0.26.2"
