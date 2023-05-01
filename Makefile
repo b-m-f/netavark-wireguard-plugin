@@ -4,7 +4,7 @@ build:
 	cargo build --release
 
 install-deps-ci:
-	apt-get update && apt-get install -yy bats curl build-essential gcc make protobuf-compiler
+	apt-get update && apt-get install -yy bats curl build-essential gcc make protobuf-compiler wireguard-tools
 	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh
 	chmod +x rustup.sh
 	./rustup.sh -y
