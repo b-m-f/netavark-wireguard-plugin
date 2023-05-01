@@ -17,7 +17,7 @@ function get_config() {
       "plugin-net": {
          "name": "test",
          "id": "2f259bab93aaaaa2542ba43ef33eb990d0999ee1b9924b557b7be53c0b7a1bb9",
-         "driver": "netavark-wireguard-plugin",
+         "driver": "wireguard-plugin",
          "options": {
             "config": "$1"
          },

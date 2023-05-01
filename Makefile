@@ -14,4 +14,4 @@ test:
 	ls /home/runner/work/netavark-wireguard-plugin/netavark-wireguard-plugin/target/release
 	ls /home/runner/work/netavark-wireguard-plugin/
 	ls /home/runner/work
-	NETAVARK=$$HOME/.cargo/bin/netavark bats test/500-plugin.bats
+	NETAVARK=$$HOME/.cargo/bin/netavark bats test/plugin-tests.bats
