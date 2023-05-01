@@ -95,7 +95,9 @@ impl Plugin for Exec {
         // in the create function
         let options = opts.network.options.unwrap_or_default();
         let config = options.get("config").unwrap();
-        let interface_name: String = ("wg-".to_owned() + &opts.network_options.interface_name)
+        // Interface names can have a lenght of maximum 15 chars.
+        // The name is is chosen from the network name, as this holds the WireGuard config
+        let interface_name: String = ("wg-".to_owned() + &opts.network.name)
             .chars()
             .into_iter()
             .take(15)
@@ -312,7 +314,12 @@ fn create_wireguard_interface(
         for route in routes {
             match netns_link_socket.add_route(&route) {
                 Ok(_) => (),
-                Err(e) => return Err(format!("Error when adding route for WireGuard peer: {}", e)),
+                Err(e) => {
+                    return Err(format!(
+                        "Error when adding route {} for WireGuard peer: {}",
+                        &route, e
+                    ))
+                }
             };
         }
     }

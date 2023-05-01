@@ -8,7 +8,7 @@ Download the binary from the release page and place it into your [netavark plugi
 ## Usage
 
 ### From Podman
-1. Create a new network and provide the path to a [WireGuard config](https://git.zx2c4.com/wireguard-tools/about/src/man/wg-quick.8). Example: `podman network create -d netavark-wireguard-plugin --interface-name=dummy --opt=config=/tmp/wireguard.conf wg`
+1. Create a new network and provide the path to a [WireGuard config](https://git.zx2c4.com/wireguard-tools/about/src/man/wg-quick.8). Example: `podman network create -d netavark-wireguard-plugin --opt=config=/tmp/wireguard.conf wg`
 2. Spawn the container into the network. Example: `podman run -ti --rm --network=wg test-image /bin/bash`
 3. The container should be connected and ready
 
