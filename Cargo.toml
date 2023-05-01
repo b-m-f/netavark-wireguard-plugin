@@ -13,6 +13,7 @@ categories = ["containers", "networking", "podman", "wireguard", "vpn"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+serde = { version = "1.0.160", features = ["derive"] }
 netavark = { git = "https://github.com/containers/netavark", tag = "v1.6.0" }
 base64 = "0.21.0"
 netlink-packet-wireguard = "0.2.1"

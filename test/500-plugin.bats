@@ -76,6 +76,9 @@ EOF
     config=$(get_config ./test/testfiles/wireguard.conf)
 
     run_netavark_with_plugins setup $(get_container_netns_path) <<<"$config"
+    interface_info="$output"
+    assert_json "$interface_info" '.test.interfaces."wg-test.subnets"' "=="  "null" "Container interface is up"
+
 
     # check that interface exists
     run_in_container_netns ip -j --details link show wg-test

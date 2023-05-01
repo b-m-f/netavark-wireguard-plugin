@@ -46,7 +46,7 @@ use netlink::CreateLinkOptions;
 use nix::sched;
 
 fn main() {
-    let info = Info::new("0.1.0-dev".to_owned(), API_VERSION.to_owned(), None);
+    let info = Info::new("1.0.0".to_owned(), API_VERSION.to_owned(), None);
 
     PluginExec::new(Exec {}, info).exec();
 }
@@ -90,11 +90,9 @@ impl Plugin for Exec {
         &self,
         network: types::Network,
     ) -> Result<types::Network, Box<dyn std::error::Error>> {
-        if network.network_interface.as_deref().unwrap_or_default() == "" {
-            return Err(new_error!("no network interface is specified"));
+        if network.options.as_ref().unwrap().get("config") == None {
+            return Err(new_error!("no "));
         }
-        // TODO: check for config option here and make sure that the file exists. Otherwise throw
-        // an error
 
         Ok(network)
     }
@@ -115,7 +113,6 @@ impl Plugin for Exec {
             .collect();
         let data = parse_config(config, interface_name.clone()).unwrap();
 
-        // TODO: extract data validation
         // Peer Validation
         for (index, peer) in data.peers.iter().enumerate() {
             if peer.public_key == [0; 32] {
@@ -146,7 +143,7 @@ impl Plugin for Exec {
             "Container interface name: {} with IP addresses {:?}",
             interface_name, data.addresses
         );
-        let interface = match create_wireguard_interface(
+        match create_wireguard_interface(
             &mut host_sock.netlink,
             &mut netns_sock.netlink,
             &data,
@@ -156,28 +153,20 @@ impl Plugin for Exec {
             Ok(interface) => interface,
             Err(e) => panic!("{}", e),
         };
-        // let mut interfaces: HashMap<String, NetInterface> = HashMap::new();
-        // interfaces.insert(
-        //     interface,
-        //     NetInterface {
-        //         mac_address: "".to_string(),
-        //         subnets: None,
-        //     },
-        // );
-        //
-        // let response = StatusBlock {
-        //     dns_server_ips: None,
-        //     dns_search_domains: None,
-        //     interfaces: Some(interfaces),
-        // };
-        // copy over setup function for PR
-        //  StatusBlock response
-        //
+
+        let mut interfaces: HashMap<String, types::NetInterface> = HashMap::new();
+        interfaces.insert(
+            interface_name,
+            types::NetInterface {
+                mac_address: "".to_string(),
+                subnets: None,
+            },
+        );
+
         let response = types::StatusBlock {
             dns_server_ips: None,
             dns_search_domains: None,
-            // TODO: fix up the interface return here
-            interfaces: None,
+            interfaces: Some(interfaces),
         };
 
         Ok(response)
