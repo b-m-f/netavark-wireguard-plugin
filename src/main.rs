@@ -1,34 +1,31 @@
 use ipnet::IpNet;
-use netlink_sys::{protocols::NETLINK_GENERIC, Socket};
+use netlink_sys::protocols::NETLINK_GENERIC;
 use std::{
     collections::HashMap,
     convert::TryInto,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs},
+    net::{IpAddr, SocketAddr, ToSocketAddrs},
 };
 
-use base64::decode;
-use std::io::{self, Error};
+use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine as _};
 
 use netlink_packet_core::{
     NetlinkDeserializable, NetlinkMessage, NetlinkPayload, NetlinkSerializable, NLM_F_ACK,
-    NLM_F_CREATE, NLM_F_DUMP, NLM_F_EXCL, NLM_F_REQUEST,
+    NLM_F_DUMP, NLM_F_REQUEST,
 };
 use std::os::unix::prelude::RawFd;
+
+use std::io;
 
 use log::{debug, trace};
 
 use netavark::{
     error::{ErrorWrap, NetavarkError, NetavarkResult},
-    network::{
-        core_utils::{open_netlink_sockets, CoreUtils},
-        netlink, types,
-    },
+    network::{core_utils::open_netlink_sockets, netlink, types},
     new_error,
     plugin::{Info, Plugin, PluginExec, API_VERSION},
 };
 use netlink::Route;
 use netlink_packet_route::nlas::link::InfoKind;
-use netlink_packet_route::{address::Nla, nlas::link};
 
 use netlink_packet_wireguard::constants::{AF_INET, AF_INET6};
 use netlink_packet_wireguard::nlas::{
@@ -425,7 +422,7 @@ fn parse_config(path: &String, interface_name: String) -> Result<WireGuard, Stri
                     interface.port = Some(port);
                 }
                 "PrivateKey" => {
-                    interface.private_key = match decode(value.clone()) {
+                    interface.private_key = match base64.decode(value.clone()) {
                         Ok(key) => match key.try_into() {
                             Ok(key) => key,
                             Err(e) => {
@@ -483,7 +480,7 @@ fn parse_config(path: &String, interface_name: String) -> Result<WireGuard, Stri
                     }
                 }
                 "PublicKey" => {
-                    current_peer.public_key = match decode(value.clone()) {
+                    current_peer.public_key = match base64.decode(value.clone()) {
                         Ok(key) => match key.try_into() {
                             Ok(key) => key,
                             Err(e) => {
@@ -502,7 +499,7 @@ fn parse_config(path: &String, interface_name: String) -> Result<WireGuard, Stri
                     }
                 }
                 "PresharedKey" => {
-                    current_peer.preshared_key = match decode(value.clone()) {
+                    current_peer.preshared_key = match base64.decode(value.clone()) {
                         Ok(key) => match key.try_into() {
                             Ok(key) => Some(key),
                             Err(e) => {
