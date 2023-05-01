@@ -28,7 +28,7 @@ use netlink_packet_wireguard::nlas::{
 use netlink::CreateLinkOptions;
 
 fn main() {
-    let info = Info::new("1.0.0".to_owned(), API_VERSION.to_owned(), None);
+    let info = Info::new("0.1.0".to_owned(), API_VERSION.to_owned(), None);
 
     PluginExec::new(Exec {}, info).exec();
 }

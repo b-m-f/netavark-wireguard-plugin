@@ -21,5 +21,8 @@ Call netavark with `--plugin-directory $PATH_TO_PLUGIN_DIRECTORY` along with a p
 # Important things to know
 
 - Only the most important fields of a `wg-quick` config file are supported. Please check [this example](./test/testfiles/wireguard.conf) for a complete overview.
+- IPv6 is currently **NOT SUPPORTED**. Routing is the main problem. Switching to [neli](https://github.com/jbaublitz/neli) might help.
+
+- For the same reason you should make sure to double check the routing you set up for IPv4 as well.
 - If you want DNS to work for your container you must set your DNS to be a server that is reachable via the WireGuard network.
 - The container must initialize the first traffic. `PersistentKeepalive` is not supported.
