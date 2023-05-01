@@ -11,7 +11,7 @@ repository = ""
 categories = ["containers", "networking", "podman", "wireguard", "vpn"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
-name = "netavark_wireguard_plugin"
+name = "netavark-wireguard-plugin"
 path = "src/main.rs"
 
 [dependencies]
