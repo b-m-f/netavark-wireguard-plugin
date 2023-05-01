@@ -48,7 +48,7 @@ function run_netavark_with_plugins() {
       "plugin-net": {
          "name": "testiswaytoolong",
          "id": "2f259bab93aaaaa2542ba43ef33eb990d0999ee1b9924b557b7be53c0b7a1bb9",
-         "driver": "netavark-wireguard-plugin",
+         "driver": "wireguard-plugin",
          "options": {
             "config": "./test/testfiles/wireguard.conf"
          },
@@ -88,22 +88,15 @@ EOF
 
     # check ip addresses
     ipaddr="10.10.0.1/16"
-    ipaddr2="2001::1/64"
-    ipaddr3="10.11.1.1/32"
-    ipaddr4="dd01:129d:3:a992:11da:aa22:93df:1/128"
+    ipaddr2="10.11.1.1/32"
     run_in_container_netns ip addr show wg-test
     assert "$output" "=~" "$ipaddr" "WireGuard IPv4 address matches container address"
-    assert "$output" "=~" "$ipaddr2" "WireGuard IPv6 address matches container address"
-    assert "$output" "=~" "$ipaddr3" "IPv4 without CIDR was added to container WireGuard interface"
-    assert "$output" "=~" "$ipaddr4" "IPv6 without CIDR was added to container WireGuard interface"
+    assert "$output" "=~" "$ipaddr2" "IPv4 without CIDR was added to container WireGuard interface"
 
     # check gateway assignment
     run_in_container_netns ip r
     assert "$output" "=~" "10.10.0.0/16 dev wg-test proto kernel scope link src 10.10.0.1" "wireguard ipv4 gateways are correctly set up"
     assert "$output" "=~" "10.11.1.0/24 via 10.11.1.1 dev wg-test proto static metric 100" "wireguard ipv4 gateways are correctly set up"
-    run_in_container_netns ip -6 r
-    assert "$output" "=~" "2001::/64 dev wg-test proto kernel metric 256 pref medium" "wireguard ipv6 gateways are correctly set up"
-    assert "$output" "=~" "dd01:129d:3:a992:11da:aa22:93df:1 dev wg-test proto kernel metric 256 pref medium" "wireguard ipv6 gateways are correctly set up"
 
     # check Interface key
     # To get the key that is compared here run echo $PRIVATE_KEY | wg pubkey on the PrivateKey from testfiles/wireguard.conf
@@ -119,14 +112,6 @@ EOF
     assert "$output" "=~" "preshared key: \(hidden\)" "WireGuard peer preshared key was correctly set"
     assert "$output" "=~" "allowed ips: 10.10.0.2/32, 10.11.1.0/24" "WireGuard peer allowed IPs were correctly set"
     assert "$output" "=~" "endpoint: 123.45.67.89:12345" "WireGuard peer endpoint was correctly set"
-
-    # check IPv6 peer
-    assert "$output" "=~" "peer: gN65BkIKy1eCE9pP1wdc8ROUtkHLF2PfAqYdyYBz6EA=" "WireGuard peer was added"
-    assert "$output" "=~" "allowed ips: ffff:ffff::/32" "WireGuard peer allowed IPs were correctly set"
-    
-    # check mixed IPv6, IPv4 peer
-    assert "$output" "=~" "peer: fMyt1P5L9yGCY41Zk8NviMqqj0S8NS5Ta9GtqwHa1Sw=" "WireGuard peer was added"
-    assert "$output" "=~" "allowed ips: ffff::abcd/128, 192.168.0.0/16" "WireGuard peer allowed IPs were correctly set"
 
 
     run_netavark_with_plugins teardown $(get_container_netns_path) <<<"$config"

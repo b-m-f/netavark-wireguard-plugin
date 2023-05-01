@@ -276,7 +276,7 @@ fn create_wireguard_interface(
 
     match netns_generic_socket.set_wireguard_device(nlas) {
         Ok(_) => (),
-        Err(e) => return Err(format!("Error adding WireGuard interface settings: {}", e)),
+        Err(e) => return Err(format!("Error adding WireGuard interface settings: {}", e)),main
     }
 
     if !data.peers.is_empty() {
