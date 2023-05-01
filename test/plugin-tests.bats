@@ -298,7 +298,7 @@ EOF
     run_netavark_with_plugins setup $(get_container_netns_path) <<<"$config"
     result="$output"
 
-    assert "$output" "=~" '"when parsing WireGuard configuration PresharedKey on line 8.  No value provided.' "Correct error on empty presharedkey"
+    assert "$output" "=~" 'when parsing WireGuard configuration PresharedKey on line 8.  No value provided.' "Correct error on empty presharedkey"
     
     config=$(get_config ./test/testfiles/wireguard-fail-presharedkey.conf)
 

@@ -91,38 +91,47 @@ impl Plugin for Exec {
     ) -> Result<types::StatusBlock, Box<dyn std::error::Error>> {
         let (mut host_sock, mut netns_sock) = open_netlink_sockets(&netns)?;
 
+        // The existence of the config option was checked during the network creation
+        // in the create function
         let options = opts.network.options.unwrap_or_default();
         let config = options.get("config").unwrap();
-        let interface_name: String = ("wg-".to_owned() + &opts.network.name)
+        let interface_name: String = ("wg-".to_owned() + &opts.network_options.interface_name)
             .chars()
             .into_iter()
             .take(15)
             .collect();
-        let data = parse_config(config, interface_name.clone()).unwrap();
+        let data = match parse_config(config, interface_name.clone()) {
+            Ok(data) => data,
+            Err(e) => return Err(new_error!("{}", e)),
+        };
 
         // Peer Validation
         for (index, peer) in data.peers.iter().enumerate() {
             if peer.public_key == [0; 32] {
-                panic!(
+                return Err(new_error!(
                     "invalid WireGuard configuration: Peer #{:?} is missing a PublicKey",
                     index
-                );
+                ));
             }
             if peer.allowed_ips.is_empty() {
-                panic!(
+                return Err(new_error!(
                     "invalid WireGuard configuration: Peer #{:?} is missing AllowedIPs",
                     index
-                );
+                ));
             }
         }
 
         // Interface Validation
         // will succeed if the interface has an Address and a PrivateKey
         if data.private_key == [0; 32] {
-            panic!("invalid WireGuard configuration: Interface is missing a PrivateKey",);
+            return Err(new_error!(
+                "invalid WireGuard configuration: Interface is missing a PrivateKey"
+            ));
         }
         if data.addresses.is_empty() {
-            panic!("invalid WireGuard configuration: Interface is missing an Address");
+            return Err(new_error!(
+                "invalid WireGuard configuration: Interface is missing an Address"
+            ));
         }
 
         debug!("Setup network {}", opts.network.name);
@@ -138,7 +147,7 @@ impl Plugin for Exec {
             netns_sock.fd,
         ) {
             Ok(interface) => interface,
-            Err(e) => panic!("{}", e),
+            Err(e) => return Err(new_error!("{}", e)),
         };
 
         let mut interfaces: HashMap<String, types::NetInterface> = HashMap::new();
@@ -298,7 +307,7 @@ fn create_wireguard_interface(
         Err(e) => return Err(format!("Error when setting WireGuard interface up: {}", e)),
     }
 
-    for peer in data.peers[..].iter() {
+    for peer in data.peers.iter() {
         let routes = generate_routes_for_peer(&data.addresses, &peer.allowed_ips);
         for route in routes {
             match netns_link_socket.add_route(&route) {
@@ -654,14 +663,12 @@ fn generate_routes_for_peer(interface_addresses: &[IpNet], allowed_ips: &[IpNet]
                 for dest in allowed_ips {
                     match dest {
                         IpNet::V4(dest) => {
-                            if dest.contains(gateway) || gateway.supernet() == dest.supernet() {
-                                let route: Route = Route::Ipv4 {
-                                    dest: *dest,
-                                    gw: gateway.addr(),
-                                    metric: None,
-                                };
-                                routes.push(route);
-                            }
+                            let route: Route = Route::Ipv4 {
+                                dest: *dest,
+                                gw: gateway.addr(),
+                                metric: None,
+                            };
+                            routes.push(route);
                         }
                         IpNet::V6(_) => {
                             continue;
@@ -676,14 +683,12 @@ fn generate_routes_for_peer(interface_addresses: &[IpNet], allowed_ips: &[IpNet]
                             continue;
                         }
                         IpNet::V6(dest) => {
-                            if dest.contains(gateway) || gateway.supernet() == dest.supernet() {
-                                let route: Route = Route::Ipv6 {
-                                    dest: *dest,
-                                    gw: gateway.addr(),
-                                    metric: None,
-                                };
-                                routes.push(route);
-                            }
+                            let route: Route = Route::Ipv6 {
+                                dest: *dest,
+                                gw: gateway.addr(),
+                                metric: None,
+                            };
+                            routes.push(route);
                         }
                     }
                 }
