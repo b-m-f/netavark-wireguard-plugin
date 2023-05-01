@@ -20,7 +20,7 @@ jobs:
           override: true
 
       - name: Build
-        run: apt-get update && apt-get install -yy protobuf-compiler && cargo build --release && strip target/release/wireguard-plugin && mv target/release/wireguard-plugin target/release/wireguard-plugin-amd64
+        run: sudo su -c 'apt-get update' && sudo su -c 'apt-get install -yy protobuf-compiler' && cargo build --release && strip target/release/wireguard-plugin && mv target/release/wireguard-plugin target/release/wireguard-plugin-amd64
 
       - name: Release
         uses: softprops/action-gh-release@v1
