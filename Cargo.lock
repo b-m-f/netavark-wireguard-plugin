@@ -1217,7 +1217,6 @@ dependencies = [
  "netlink-packet-wireguard",
  "netlink-sys",
  "nix 0.26.2",
- "serde",
 ]
 
 [[package]]

@@ -9,11 +9,12 @@ description = "WireGuard plugin to be used with https://github.com/containers/ne
 homepage = ""
 repository = ""
 categories = ["containers", "networking", "podman", "wireguard", "vpn"]
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "netavark_wireguard_plugin"
+path = "src/main.rs"
 
 [dependencies]
-serde = { version = "1.0.160", features = ["derive"] }
 netavark = { git = "https://github.com/containers/netavark", tag = "v1.6.0" }
 base64 = "0.21.0"
 netlink-packet-wireguard = "0.2.1"
